@@ -1,1 +1,1 @@
-Fame is a gun, and i point it blind
+fame is a gun, and i point it blind
