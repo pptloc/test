@@ -1,0 +1,1 @@
+Fame is a gun
