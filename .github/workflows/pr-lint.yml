@@ -2,7 +2,7 @@ name: CI & PR Lint
 
 on:
   pull_request:
-    types: [edited]
+    types: [opened, synchronize, edited]
     branches: [main, staging, dev]
 
 jobs:
