@@ -1,8 +1,8 @@
-name: PR Title Check
+name: CI & PR Lint
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    branches: [main, staging, dev]
 
 jobs:
   pr-lint:
@@ -13,6 +13,18 @@ jobs:
           TITLE="${{ github.event.pull_request.title }}"
           echo "PR TITLE: $TITLE"
           if [[ ! "$TITLE" =~ ^(feat|fix|chore|refactor|docs|test)/.+$ ]]; then
-            echo "::error::❌ Invalid PR title. Must start with feat/, fix/, etc."
+            echo "::error::❌ Invalid PR title."
             exit 1
           fi
+
+  build-test:
+    needs: pr-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - run: dotnet restore ./aspnet/aspnetapp/aspnetapp.sln
+      - run: dotnet build ./aspnet/aspnetapp/aspnetapp.sln --no-restore
+      - run: dotnet test ./aspnet/aspnetapp/aspnetapp.sln --no-build
