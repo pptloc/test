@@ -26,14 +26,18 @@ jobs:
       - name: Generate Docker tag
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          BRANCH=$(echo "${GITHUB_REF##*/}")
+          BRANCH="${GITHUB_REF##*/}"
+
           if [[ "$BRANCH" == "develop" ]]; then
             TAG="v1.0.0-qa-${SHORT_SHA}"
           elif [[ "$BRANCH" == "main" ]]; then
             TAG="v1.0.0-uat-${SHORT_SHA}"
+          else
+            echo "::error::Unsupported branch: $BRANCH"
+            exit 1
           fi
-          echo "TAG=$TAG" >> $GITHUB_ENV
 
+          echo "TAG=$TAG" >> $GITHUB_ENV
       - name: Build and Push Docker image
         run: |
           docker build -t $DOCKER_REPO:$TAG -f aspnet/Dockerfile aspnet
