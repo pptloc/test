@@ -4,10 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
-    branches:
-      - main
-      - staging
-       
+
   workflow_dispatch:
     inputs:
       image_tag:
