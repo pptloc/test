@@ -1,0 +1,53 @@
+name: CD - Auto Deploy to QA or UAT
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+env:
+  DOCKER_REPO: pptloc/aspnetapp
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - run: dotnet restore ./aspnet/aspnetapp/aspnetapp.sln
+      - run: dotnet build ./aspnet/aspnetapp/aspnetapp.sln --no-restore
+      - run: dotnet test ./aspnet/aspnetapp/aspnetapp.sln --no-build
+
+      - name: Generate Docker tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          BRANCH=$(echo "${GITHUB_REF##*/}")
+          if [[ "$BRANCH" == "develop" ]]; then
+            TAG="v1.0.0-qa-${SHORT_SHA}"
+          elif [[ "$BRANCH" == "main" ]]; then
+            TAG="v1.0.0-uat-${SHORT_SHA}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Build and Push Docker image
+        run: |
+          docker build -t $DOCKER_REPO:$TAG -f aspnet/Dockerfile aspnet
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker push $DOCKER_REPO:$TAG
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USERNAME }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            docker pull $DOCKER_REPO:$TAG
+            docker stop aspnetapp || true
+            docker rm aspnetapp || true
+            docker run -d --name aspnetapp -p 80:8080 $DOCKER_REPO:$TAG

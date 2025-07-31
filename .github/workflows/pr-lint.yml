@@ -3,7 +3,7 @@ name: CI & PR Lint
 on:
   pull_request:
     types: [opened, synchronize, edited]
-    branches: [main, staging, dev]
+    branches: [main, develop]
 
 jobs:
   pr-lint:
@@ -12,13 +12,13 @@ jobs:
       - name: Check PR title convention
         run: |
           TITLE="${{ github.event.pull_request.title }}"
-          echo "PR TITLE: $TITLE"
+          echo "🔍 PR TITLE: $TITLE"
           if [[ ! "$TITLE" =~ ^(feat|fix|chore|refactor|docs|test)/.+$ ]]; then
-            echo "::error::❌ Invalid PR title."
+            echo "::error::❌ Invalid PR title. Use feat/, fix/, etc."
             exit 1
           fi
 
-  build-test:
+  build-and-test:
     needs: pr-lint
     runs-on: ubuntu-latest
     steps:
