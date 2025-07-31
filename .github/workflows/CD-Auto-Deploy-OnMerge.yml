@@ -12,6 +12,7 @@ env:
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -26,7 +27,8 @@ jobs:
       - name: Generate Docker tag
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          BRANCH="${GITHUB_REF##*/}"
+          BRANCH=$(basename "${GITHUB_REF}")
+          echo "Branch detected: $BRANCH"
 
           if [[ "$BRANCH" == "develop" ]]; then
             TAG="v1.0.0-qa-${SHORT_SHA}"
@@ -38,8 +40,11 @@ jobs:
           fi
 
           echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "Generated TAG=$TAG"
+
       - name: Build and Push Docker image
         run: |
+          echo "Building image: $DOCKER_REPO:$TAG"
           docker build -t $DOCKER_REPO:$TAG -f aspnet/Dockerfile aspnet
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           docker push $DOCKER_REPO:$TAG
@@ -51,7 +56,8 @@ jobs:
           username: ${{ secrets.AZURE_USERNAME }}
           key: ${{ secrets.AZURE_SSH_KEY }}
           script: |
-            docker pull $DOCKER_REPO:$TAG
+            echo "Pulling image: $DOCKER_REPO:${{ env.TAG }}"
+            docker pull $DOCKER_REPO:${{ env.TAG }}
             docker stop aspnetapp || true
             docker rm aspnetapp || true
-            docker run -d --name aspnetapp -p 80:8080 $DOCKER_REPO:$TAG
+            docker run -d --name aspnetapp -p 80:8080 $DOCKER_REPO:${{ env.TAG }}
