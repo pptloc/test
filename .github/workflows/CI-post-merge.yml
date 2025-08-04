@@ -1,42 +1,27 @@
-name: CI - Post Merge to Main
+name: CD - Manual Deploy to Production
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
 
 env:
   DOCKER_REPO: pptloc/aspnetapp
 
 jobs:
-  build-and-test:
+  deploy-production:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          dotnet-version: '9.0.x'
-      - run: dotnet restore ./aspnet/aspnetapp/aspnetapp.sln
-      - run: dotnet build ./aspnet/aspnetapp/aspnetapp.sln --no-restore
-      - run: dotnet test ./aspnet/aspnetapp/aspnetapp.sln --no-build
-
-  docker-build-push:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set Docker tag
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          TAG="1.0.0-main-p-${SHORT_SHA}"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: Build Docker image
-        run: docker build -t $DOCKER_REPO:$TAG -f aspnet/Dockerfile aspnet
-
-      - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Push Docker image
-        run: docker push $DOCKER_REPO:$TAG
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USERNAME }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            docker pull $DOCKER_REPO:${{ github.event.inputs.image_tag }}
+            docker stop aspnetapp || true
+            docker rm aspnetapp || true
+            docker run -d --name aspnetapp -p 80:8080 $DOCKER_REPO:${{ github.event.inputs.image_tag }}
