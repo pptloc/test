@@ -1,0 +1,27 @@
+name: CD - Manual Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+
+env:
+  DOCKER_REPO: pptloc/aspnetapp
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USERNAME }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          script: |
+            docker pull $DOCKER_REPO:${{ github.event.inputs.image_tag }}
+            docker stop aspnetapp || true
+            docker rm aspnetapp || true
+            docker run -d --name aspnetapp -p 80:8080 $DOCKER_REPO:${{ github.event.inputs.image_tag }}
